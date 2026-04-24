@@ -40,6 +40,23 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+confirm_action() {
+    local prompt="$1"
+    local reply
+
+    if [ ! -t 0 ]; then
+        print_error "Interactive confirmation required: ${prompt}"
+        print_info "Please run this installer in an interactive terminal"
+        exit 1
+    fi
+
+    read -r -p "${prompt} [y/N]: " reply
+    if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+        print_info "Operation cancelled"
+        exit 1
+    fi
+}
+
 run_with_privilege() {
     if [ "$(id -u)" -eq 0 ]; then
         "$@"
@@ -151,7 +168,8 @@ install_npm_macos() {
 
 ensure_npm() {
     if ! command_exists npm; then
-        print_warning "npm not found, trying to install automatically..."
+        print_warning "npm not found"
+        confirm_action "Install Node.js/npm automatically?"
 
         case "$(detect_os)" in
             linux)
@@ -180,8 +198,11 @@ install_via_npm_fallback() {
     ensure_npm
 
     mkdir -p "${LOCAL_PREFIX}" "${LOCAL_BIN}"
-    print_warning "Falling back to npm install: ${NPM_PACKAGE}"
+    print_info "Falling back to npm install: ${NPM_PACKAGE}"
     npm install -g "${NPM_PACKAGE}" --prefix "${LOCAL_PREFIX}"
+
+    # Make newly installed binaries visible in current shell session.
+    export PATH="${LOCAL_BIN}:${PATH}"
 }
 
 create_claude_code_shim() {
@@ -198,7 +219,7 @@ print_path_hint_if_needed() {
     case ":$PATH:" in
         *":${LOCAL_BIN}:"*) ;;
         *)
-            print_warning "${LOCAL_BIN} is not in your PATH"
+            print_info "${LOCAL_BIN} is not in your PATH"
             print_info "Run: export PATH=\"${LOCAL_BIN}:\$PATH\""
             ;;
     esac
@@ -264,6 +285,10 @@ install() {
         print_success "Claude Code installed successfully"
         claude-code --version 2>/dev/null || true
         print_info "Command available: claude-code"
+    elif [ -x "${CLAUDE_BIN}" ]; then
+        print_success "Claude installed successfully"
+        print_info "Command path: ${CLAUDE_BIN}"
+        print_info "Add ${LOCAL_BIN} to PATH to run 'claude' directly"
     else
         print_warning "Install finished, but no claude command found in current PATH"
     fi
