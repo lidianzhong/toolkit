@@ -35,7 +35,7 @@ show_help() {
 ${GREEN}Toolkit Installer${NC}
 
 Usage:
-    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- [command] [options]
+    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s [command] [options]
 
 Commands:
     claude-code              Install Claude Code
@@ -44,13 +44,13 @@ Commands:
 
 Examples:
   # Install Claude Code
-    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- claude-code
+        curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s claude-code
   
   # Uninstall Claude Code
-    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- claude-code --uninstall
+        curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s claude-code --uninstall
   
   # Show help
-    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- help
+        curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s help
 EOF
 }
 
@@ -78,13 +78,21 @@ run_install_script() {
     local action="${1:-install}"
     local os=$(detect_os)
     local arch=$(detect_arch)
+    local script_url="${SCRIPT_URL_BASE}/scripts/${INSTALL_SCRIPT}?t=$(date +%s)"
+    local main_sha=""
     
     print_info "Detected OS: ${os}, Arch: ${arch}"
     print_info "Downloading ${INSTALL_SCRIPT}..."
+
+    # 优先按 main 分支最新 commit SHA 下载，避免 raw branch URL 缓存旧脚本
+    main_sha=$(git ls-remote https://github.com/lidianzhong/toolkit.git refs/heads/main 2>/dev/null | awk '{print $1}' || true)
+    if [ -n "${main_sha}" ]; then
+        script_url="https://raw.githubusercontent.com/lidianzhong/toolkit/${main_sha}/scripts/${INSTALL_SCRIPT}"
+    fi
     
     # 下载脚本
     local script_content
-    if ! script_content=$(curl -fsSL "${SCRIPT_URL_BASE}/scripts/${INSTALL_SCRIPT}" 2>/dev/null); then
+    if ! script_content=$(curl -fsSL -H "Cache-Control: no-cache" "${script_url}" 2>/dev/null); then
         print_error "Failed to download ${INSTALL_SCRIPT}"
         print_error "Please check your network connection"
         exit 1
