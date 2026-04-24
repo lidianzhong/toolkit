@@ -35,7 +35,7 @@ show_help() {
 ${GREEN}Toolkit Installer${NC}
 
 Usage:
-  curl -fsSL ${SCRIPT_URL_BASE}/install.sh | sh -s [command] [options]
+    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- [command] [options]
 
 Commands:
     claude-code              Install Claude Code
@@ -44,13 +44,13 @@ Commands:
 
 Examples:
   # Install Claude Code
-  curl -fsSL ${SCRIPT_URL_BASE}/install.sh | sh -s claude-code
+    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- claude-code
   
   # Uninstall Claude Code
-  curl -fsSL ${SCRIPT_URL_BASE}/install.sh | sh -s claude-code --uninstall
+    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- claude-code --uninstall
   
   # Show help
-  curl -fsSL ${SCRIPT_URL_BASE}/install.sh | sh -s help
+    curl -fsSL ${SCRIPT_URL_BASE}/install.sh | bash -s -- help
 EOF
 }
 
