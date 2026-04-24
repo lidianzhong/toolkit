@@ -40,6 +40,18 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+run_with_privilege() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    elif command_exists sudo; then
+        sudo "$@"
+    else
+        print_error "Root permission is required to install npm automatically"
+        print_info "Please install Node.js/npm manually, then rerun this installer"
+        exit 1
+    fi
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --os)
@@ -99,11 +111,68 @@ ensure_unix_requirements() {
     fi
 }
 
+install_npm_linux() {
+    if command_exists apt-get; then
+        print_info "Installing npm via apt-get"
+        run_with_privilege apt-get update
+        run_with_privilege apt-get install -y nodejs npm
+    elif command_exists dnf; then
+        print_info "Installing npm via dnf"
+        run_with_privilege dnf install -y nodejs npm
+    elif command_exists yum; then
+        print_info "Installing npm via yum"
+        run_with_privilege yum install -y nodejs npm
+    elif command_exists pacman; then
+        print_info "Installing npm via pacman"
+        run_with_privilege pacman -Sy --noconfirm nodejs npm
+    elif command_exists zypper; then
+        print_info "Installing npm via zypper"
+        run_with_privilege zypper --non-interactive install nodejs npm
+    elif command_exists apk; then
+        print_info "Installing npm via apk"
+        run_with_privilege apk add --no-cache nodejs npm
+    else
+        print_error "Unsupported Linux package manager for auto npm install"
+        print_info "Please install Node.js/npm manually, then rerun this installer"
+        exit 1
+    fi
+}
+
+install_npm_macos() {
+    if ! command_exists brew; then
+        print_error "Homebrew is required to auto-install npm on macOS"
+        print_info "Install Homebrew first, or install Node.js manually"
+        exit 1
+    fi
+
+    print_info "Installing npm via Homebrew"
+    brew install node
+}
+
 ensure_npm() {
     if ! command_exists npm; then
-        print_error "npm is required for fallback install but not found"
-        print_info "Install Node.js/npm, or use a network that can access https://claude.ai/install.sh"
-        exit 1
+        print_warning "npm not found, trying to install automatically..."
+
+        case "$(detect_os)" in
+            linux)
+                install_npm_linux
+                ;;
+            macos)
+                install_npm_macos
+                ;;
+            *)
+                print_error "Automatic npm installation is only supported on Linux/macOS"
+                exit 1
+                ;;
+        esac
+
+        if ! command_exists npm; then
+            print_error "Automatic npm installation failed"
+            print_info "Please install Node.js/npm manually, then rerun this installer"
+            exit 1
+        fi
+
+        print_success "npm installed successfully"
     fi
 }
 
