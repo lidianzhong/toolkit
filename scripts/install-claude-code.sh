@@ -9,9 +9,11 @@ BLUE=$'\033[0;34m'
 NC=$'\033[0m'
 
 # Paths
+LOCAL_PREFIX="${HOME}/.local"
 LOCAL_BIN="${HOME}/.local/bin"
 CLAUDE_BIN="${LOCAL_BIN}/claude"
 CLAUDE_CODE_SHIM="${LOCAL_BIN}/claude-code"
+NPM_PACKAGE="@anthropic-ai/claude-code"
 
 # Parsed args
 OS=""
@@ -97,6 +99,22 @@ ensure_unix_requirements() {
     fi
 }
 
+ensure_npm() {
+    if ! command_exists npm; then
+        print_error "npm is required for fallback install but not found"
+        print_info "Install Node.js/npm, or use a network that can access https://claude.ai/install.sh"
+        exit 1
+    fi
+}
+
+install_via_npm_fallback() {
+    ensure_npm
+
+    mkdir -p "${LOCAL_PREFIX}" "${LOCAL_BIN}"
+    print_warning "Falling back to npm install: ${NPM_PACKAGE}"
+    npm install -g "${NPM_PACKAGE}" --prefix "${LOCAL_PREFIX}"
+}
+
 create_claude_code_shim() {
     mkdir -p "${LOCAL_BIN}"
 
@@ -129,8 +147,22 @@ install() {
     case "$os" in
         linux|macos)
             ensure_unix_requirements
+
+            local tmp_installer
+            local http_code
+            tmp_installer=$(mktemp)
+
             print_info "Running: curl -fsSL https://claude.ai/install.sh | bash"
-            curl -fsSL https://claude.ai/install.sh | bash
+            http_code=$(curl -sSL -w "%{http_code}" -o "${tmp_installer}" https://claude.ai/install.sh || true)
+
+            if [ "${http_code}" = "200" ]; then
+                bash "${tmp_installer}"
+            else
+                print_warning "Official installer request failed (HTTP ${http_code:-unknown})"
+                install_via_npm_fallback
+            fi
+
+            rm -f "${tmp_installer}"
             ;;
         windows)
             if command_exists powershell.exe; then
